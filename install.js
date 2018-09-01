@@ -1,14 +1,13 @@
+#!/usr/bin/env node
+
 const unzipper = require("unzipper");
 const fs = require("fs");
 const path = require("path")
 
 
-function UnzipHaozip() {
+module.exports.UnzipHaozip = function () {
     fs.createReadStream(path.join(__dirname, "haozip.zip"))
         .pipe(unzipper.Extract({
-            path: path.join(__dirname, "haozip"),
+            path: __dirname,
         }));
 }
-
-
-UnzipHaozip();
