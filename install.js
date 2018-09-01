@@ -6,7 +6,8 @@ const path = require("path")
 
 
 module.exports.UnzipHaozip = function () {
-    fs.createReadStream(path.join(__dirname, "haozip.zip"))
+    fs
+        .createReadStream(path.join(__dirname, "haozip.xzip"))
         .pipe(unzipper.Extract({
             path: __dirname,
         }));

@@ -4,11 +4,15 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "iconv-lite": "^0.4.24",
     "unzipper": "^0.9.3"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "mocha": "^5.2.0"
+  },
   "scripts": {
-    "install": "node bin/install"
+    "install": "node bin/install",
+    "test": "mocha ./test.js"
   },
   "author": "",
   "license": "ISC"
