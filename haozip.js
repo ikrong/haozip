@@ -11,6 +11,10 @@ const HaoZipExtractOption = {
     /**输出目录 */
     output: "",
 }
+const HaoZipTestOption = {
+    /**密码 */
+    password: ""
+}
 const HaoErrStrs = {
     password: [
         "CRC 错误",
@@ -25,7 +29,8 @@ const HaoErrStrs = {
     ],
 }
 
-const HaoError = {
+const HaoStatus = {
+    Success: 0,
     /**解压出错 */
     Error: -1,
     /**密码错误 */
@@ -34,54 +39,13 @@ const HaoError = {
     ErrorFile: -3,
 }
 
-function HaoExec(cmd) {
-    return new Promise((r, j) => {
-        child_process.exec(cmd, {
-            encoding: "buffer"
-        }, (e, stdo, stde) => {
-            let sto = ste = "";
-            if (stdo) sto = iconv.decode(stdo, "gbk").replace(/[\r\n]+/g, "\n");
-            if (stde) ste = iconv.decode(stde, "gbk").replace(/[\r\n]+/g, "\n");
-            let err = {
-                type: HaoError.Error,
-                msg: "解压出错",
-            }
-            if (e) {
-                j(err);
-            } else {
-                let estr = /([\u4e00-\u9fa5\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300ba-z0-9]+)[\r\n]子项错误：[ ]+(\d+)/gi.exec(sto);
-                if (estr) {
-                    err.msg = estr[1];
-                    if (HaoErrStrs.password.some(item => item == estr[1])) {
-                        err.type = HaoError.ErrorPassword;
-                    } else if (HaoErrStrs.file.some(item => item == estr[1])) {
-                        err.type = HaoError.ErrorFile;
-                    }
-                    j(err);
-                } else {
-                    r(sto);
-                }
-            }
-        });
-    })
+function ToAbsolutePath(filepath = "./") {
+    let isAbsoluteDir = path.isAbsolute(filepath);
+    if (!isAbsoluteDir) filepath = path.join(process.cwd(), filepath);
+    return filepath;
 }
 
-function HaoZip(zipfile = "", options = HaoZipExtractOption) {
-    /**
-     * -ao 覆盖模式 a 直接覆盖 s 跳过 u 自动重命名释放文件 t 自动重命名现有文件
-     * -o  输出目录
-     * -p  密码
-     * -y  全部yes
-     */
-    if (!zipfile) {
-        return Promise.reject({
-            type: HaoError.Error,
-            msg: "无文件",
-        })
-    }
-    let isAbsoluteDir = path.isAbsolute(zipfile);
-    if (!isAbsoluteDir) zipfile = path.join(process.cwd(), zipfile);
-    options = Object.assign(HaoZipExtractOption, options);
+function TransformParams(options, zipfile = "") {
     let params = [];
     for (let key in options) {
         switch (key) {
@@ -97,14 +61,87 @@ function HaoZip(zipfile = "", options = HaoZipExtractOption) {
         }
     }
     params.push("-y");
-    let cmd = `${HaoZipC} e ${zipfile} ${params.join(" ")}`;
+    return params.join(" ")
+}
+
+function HaoExec(cmd) {
+    return new Promise((r, j) => {
+        child_process.exec(cmd, {
+            encoding: "buffer"
+        }, (e, stdo, stde) => {
+            let sto = ste = "";
+            if (stdo) sto = iconv.decode(stdo, "gbk").replace(/[\r\n]+/g, "\n");
+            if (stde) ste = iconv.decode(stde, "gbk").replace(/[\r\n]+/g, "\n");
+            let err = {
+                type: HaoStatus.Error,
+                msg: "解压出错",
+            }
+            if (e) {
+                j(err);
+            } else {
+                let estr = /([\u4e00-\u9fa5\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300ba-z0-9]+)[\r\n]子项错误：[ ]+(\d+)/gi.exec(sto);
+                if (estr) {
+                    err.msg = estr[1];
+                    if (HaoErrStrs.password.some(item => item == estr[1])) {
+                        err.type = HaoStatus.ErrorPassword;
+                    } else if (HaoErrStrs.file.some(item => item == estr[1])) {
+                        err.type = HaoStatus.ErrorFile;
+                    }
+                    j(err);
+                } else {
+                    err.type = HaoStatus.Success;
+                    err.msg = "";
+                    r(err);
+                }
+            }
+        });
+    })
+}
+
+function Extract(zipfile = "", options = HaoZipExtractOption) {
+    /**
+     * -ao 覆盖模式 a 直接覆盖 s 跳过 u 自动重命名释放文件 t 自动重命名现有文件
+     * -o  输出目录
+     * -p  密码
+     * -y  全部yes
+     */
+    if (!zipfile) {
+        return Promise.reject({
+            type: HaoStatus.Error,
+            msg: "无文件",
+        })
+    }
+    zipfile = ToAbsolutePath(zipfile);
+    options = Object.assign(HaoZipExtractOption, options);
+    let params = TransformParams(options, zipfile);
+    let cmd = `${HaoZipC} e ${zipfile} ${params}`;
+    return HaoExec(cmd)
+}
+
+function Test(zipfile = "", options = HaoZipTestOption) {
+    if (!zipfile) {
+        return Promise.reject({
+            type: HaoStatus.Error,
+            msg: "无文件",
+        })
+    }
+    zipfile = ToAbsolutePath(zipfile);
+    options = Object.assign(HaoZipTestOption, options);
+    // HaoZipC u archive.zip *.doc
+    let params = TransformParams(options, zipfile);
+    let cmd = `${HaoZipC} t ${zipfile} ${params}`;
     return HaoExec(cmd)
 }
 
 module.exports = {
-    Haozip: HaoZip,
-    HaoError: HaoError,
+    Extract: Extract,
+    Test: Test,
+    HaoStatus: HaoStatus,
 };
+
+Test("./assets/test.xzip", {
+    password: "123",
+}).then(data => console.log(data), e => console.log(e));
 
 // F:\My_Fun\ali.git\unpack\haozip\HaoZipC e F:\My_Fun\ali.git\unpack\test\test.zip -aoa -oF:\My_Fun\ali.git\unpack\test
 
