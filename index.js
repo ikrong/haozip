@@ -25,15 +25,23 @@ let totalFilesNum = 0;
 /**已解压文件总数 */
 let unpackedFilesNum = 0;
 let progressBar;
+let configDir = path.join(process.env.TEMP, "unpack.config");
 
 /**加载可能的密码 */
 function LoadPwd() {
     let pwdfilepath = path.join(process.cwd(), "unpack.pwd");
+    let pwdList = [];
     if (fs.existsSync(pwdfilepath)) {
         let pwdfile = fs.readFileSync(pwdfilepath)
         let pwd = pwdfile.toString()
-        return pwd.split(/[\r\n]+/gi);
-    } else return [];
+        pwdList = pwd.split(/[\r\n]+/gi);
+    }
+    let config = ReadConfig()
+    if (config.pwd) {
+        let setArr = new Set(pwdList.concat(config.pwd));
+        pwdList = Array.from(setArr);
+    }
+    return pwdList;
 }
 
 /**搜寻压缩包 */
@@ -126,6 +134,53 @@ async function UnPackAll(dir = process.cwd()) {
     }
 }
 
+function ReadConfig() {
+    if (!fs.existsSync(configDir)) {
+        fs.writeFileSync(configDir, "");
+    }
+    return fs.readJsonSync(configDir, {
+        throws: false,
+    }) || {};
+}
+
+function WriteConfig(data = {}) {
+    if (!fs.existsSync(configDir)) {
+        fs.writeFileSync(configDir, "");
+    }
+    fs.writeFileSync(configDir, JSON.stringify(data));
+}
+
+function ConfigSet(key, value) {
+    if (!(key && value)) return;
+    let config = ReadConfig();
+    if (key == "pwd") {
+        config.pwd = config.pwd || [];
+        if (!config.pwd.some(i => i == value)) {
+            config.pwd.push(value);
+        }
+    }
+    WriteConfig(config);
+}
+
+function ConfigRemove(key, value) {
+    if (!(key)) return;
+    let config = ReadConfig();
+    if (key == "pwd") {
+        config.pwd = config.pwd || [];
+        if (value) {
+            config.pwd.some((item, i) => {
+                if (item == value) {
+                    config.pwd.splice(i, 1);
+                    return true;
+                }
+            })
+        } else {
+            delete config.pwd;
+        }
+    }
+    WriteConfig(config);
+}
+
 module.exports = {
     run: async (cli = meow()) => {
         if (cli.flags.all) {
@@ -135,6 +190,17 @@ module.exports = {
             console.log(print.success(`解压成功: ${unpackArr.success.length}`))
             console.log(print.error(`压缩文件损坏或者密码错误: ${unpackArr.err.length}`))
             console.log(print.error(`  ${unpackArr.err.join("\n  ")}`))
+            return;
+        }
+        if (cli.input[0] == "config") {
+            // input: [ 'config', 'set', 'pwd', '123' ]
+            // node bin/unpack config set pwd 123
+            if (cli.input[1] == "set") {
+                ConfigSet(cli.input[2], cli.input[3]);
+                console.log(print.success(`设置成功 ${cli.input[2]}=${cli.input[3]}`));
+            } else if (cli.input[1] == "remove") {
+                ConfigRemove(cli.input[2], cli.input[3]);
+            }
         }
     }
 }
