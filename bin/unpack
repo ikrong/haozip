@@ -1,0 +1,35 @@
+#!/usr/bin/env node
+
+const unpack = require("../index.js");
+const meow = require("meow");
+
+const cli = meow(`
+好压的nodejs简版，仅限windows
+使用
+  unpack
+    --all -a 解压当前目录以及子目录所有压缩文件
+    --remove -re 是否删除源文件
+`, {
+    autoHelp: true,
+    autoVersion: true,
+    flags: {
+        version: {
+            type: 'boolean',
+            alias: 'v',
+        },
+        help: {
+            type: 'boolean',
+            alias: 'h',
+        },
+        all: {
+            type: "boolean",
+            alias: "a"
+        },
+        remove: {
+            type: "boolean",
+            alias: "re",
+        }
+    }
+})
+
+unpack.run(cli)

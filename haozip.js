@@ -1,11 +1,13 @@
 const child_process = require("child_process");
 const path = require("path");
 const iconv = require("iconv-lite");
+const fileType = require("file-type");
+const readChunk = require("read-chunk");
 
 const HaoZipC = path.join(__dirname, "haozip", "HaoZipC");
 const HaoZipExtractOption = {
     /**是否覆盖 */
-    rewrite: true,
+    rewrite: false,
     /**密码 */
     password: "",
     /**输出目录 */
@@ -17,15 +19,15 @@ const HaoZipTestOption = {
 }
 const HaoErrStrs = {
     password: [
-        "CRC 错误",
         "加密文件CRC校验错误，密码错误？",
+        "加密文件数据错误，密码错误？",
         "校验错误，密码错误？"
     ],
     file: [
         "数据错误",
-        "加密文件数据错误，密码错误？",
         "未知错误",
         "无法打开加密的文档，密码错误？",
+        "无法打开文档",
     ],
 }
 
@@ -39,14 +41,37 @@ const HaoStatus = {
     ErrorFile: -3,
 }
 
+/**判断是不是压缩文件 */
+function IsArchive(file) {
+    if (!file) return false;
+    let buf = readChunk.sync(file, 0, 4100)
+    let result = fileType(buf);
+    if (result) {
+        let archiveExt = [
+            "zip", "rar", "7z", "tar.bz2",
+            "tar.gz", "tar.xz", "gzip", "bzip2",
+            "xz", "tar", "wim", "lzh"
+        ]
+        return archiveExt.some(item => item == result.ext);
+    } else {
+        return false;
+    }
+}
+
+/**转为绝对路径 */
 function ToAbsolutePath(filepath = "./") {
     let isAbsoluteDir = path.isAbsolute(filepath);
     if (!isAbsoluteDir) filepath = path.join(process.cwd(), filepath);
     return filepath;
 }
 
+/**转换好压命令参数 */
 function TransformParams(options, zipfile = "") {
     let params = [];
+    if (!options.output) {
+        let pathinfo = path.parse(zipfile);
+        options.output = path.join(pathinfo.dir, pathinfo.name);
+    }
     for (let key in options) {
         switch (key) {
             case "rewrite":
@@ -56,7 +81,7 @@ function TransformParams(options, zipfile = "") {
                 params.push(`-p${options[key]||'-'}`);
                 break;
             case "output":
-                params.push(`-o${options[key]?options[key]:path.parse(zipfile).dir}`)
+                params.push(`-o${options[key]}`)
                 break;
         }
     }
@@ -64,6 +89,7 @@ function TransformParams(options, zipfile = "") {
     return params.join(" ")
 }
 
+/**执行好压命令 */
 function HaoExec(cmd) {
     return new Promise((r, j) => {
         child_process.exec(cmd, {
@@ -80,6 +106,9 @@ function HaoExec(cmd) {
                 j(err);
             } else {
                 let estr = /([\u4e00-\u9fa5\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300ba-z0-9]+)[\r\n]子项错误：[ ]+(\d+)/gi.exec(sto);
+                if (!estr) {
+                    estr = /错误： ([\u4e00-\u9fa5\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300ba-z0-9]+)\n?$/gi.exec(sto);
+                }
                 if (estr) {
                     err.msg = estr[1];
                     if (HaoErrStrs.password.some(item => item == estr[1])) {
@@ -98,6 +127,7 @@ function HaoExec(cmd) {
     })
 }
 
+/**解压 */
 function Extract(zipfile = "", options = HaoZipExtractOption) {
     /**
      * -ao 覆盖模式 a 直接覆盖 s 跳过 u 自动重命名释放文件 t 自动重命名现有文件
@@ -118,6 +148,7 @@ function Extract(zipfile = "", options = HaoZipExtractOption) {
     return HaoExec(cmd)
 }
 
+/**测试压缩文件 */
 function Test(zipfile = "", options = HaoZipTestOption) {
     if (!zipfile) {
         return Promise.reject({
@@ -134,27 +165,12 @@ function Test(zipfile = "", options = HaoZipTestOption) {
 }
 
 module.exports = {
+    /**判断是否是压缩文件 */
+    IsArchive: IsArchive,
+    /**解压 */
     Extract: Extract,
+    /**测试压缩文件 */
     Test: Test,
+    /**好压返回文件状态 */
     HaoStatus: HaoStatus,
 };
-
-Test("./assets/test.xzip", {
-    password: "123",
-}).then(data => console.log(data), e => console.log(e));
-
-// F:\My_Fun\ali.git\unpack\haozip\HaoZipC e F:\My_Fun\ali.git\unpack\test\test.zip -aoa -oF:\My_Fun\ali.git\unpack\test
-
-// 处理压缩包： F:\My_Fun\ali.git\unpack\test\test.zip ...
-// 正在解压  test.txt  加密文件CRC校验错误，密码错误？
-// 子项错误： 1
-
-// 处理压缩包： F:\My_Fun\ali.git\unpack\test\error.zip ...
-// 正在解压  test.txt  加密文件数据错误，密码错误？
-// 子项错误： 1
-
-// 处理压缩包： F:\My_Fun\ali.git\unpack\test\test.zip ...
-// 正在解压  test.txt
-// 已完成
-// 解压大小：9
-// 压缩大小：171
