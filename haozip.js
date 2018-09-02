@@ -78,10 +78,10 @@ function TransformParams(options, zipfile = "") {
                 params.push(`-ao${options[key]?'a':'s'}`)
                 break;
             case "password":
-                params.push(`-p${options[key]||'-'}`);
+                params.push(`-p"${options[key]||'-'}"`);
                 break;
             case "output":
-                params.push(`-o${options[key]}`)
+                params.push(`-o"${options[key]}"`)
                 break;
         }
     }
@@ -92,6 +92,7 @@ function TransformParams(options, zipfile = "") {
 /**执行好压命令 */
 function HaoExec(cmd) {
     return new Promise((r, j) => {
+        console.log(cmd)
         child_process.exec(cmd, {
             encoding: "buffer"
         }, (e, stdo, stde) => {
@@ -144,7 +145,7 @@ function Extract(zipfile = "", options = HaoZipExtractOption) {
     zipfile = ToAbsolutePath(zipfile);
     options = Object.assign(HaoZipExtractOption, options);
     let params = TransformParams(options, zipfile);
-    let cmd = `${HaoZipC} e ${zipfile} ${params}`;
+    let cmd = `${HaoZipC} e "${zipfile}" ${params}`;
     return HaoExec(cmd)
 }
 
