@@ -129,7 +129,7 @@ module.exports = {
             argvs = cli.flags;
             console.log("正在解压文件")
             await UnPackAll();
-            console.log(print.success(`解压成功: ${totalFilesNum}`))
+            console.log(print.success(`解压成功: ${unpackArr.success.length}`))
             console.log(print.error(`压缩文件损坏或者密码错误: ${unpackArr.err.length}`))
             console.log(print.error(`  ${unpackArr.err.join("\n  ")}`))
         }
