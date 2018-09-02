@@ -1,4 +1,4 @@
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
 const Haozip = require("./haozip");
 const glob = require("glob");
@@ -94,7 +94,11 @@ async function UnPack(file, pwd = LoadPwd()) {
                 await UnPackAll(output);
             } catch (e) {}
             if (argvs.remove) {
-                del.sync(file);
+                // console.log(file)
+                // console.log(del.sync(`'${file}'`, {
+                //     force: true,
+                // }));
+                fs.removeSync(file)
             }
             unpackArr.success.push(file);
             return Haozip.HaoStatus.Success;
@@ -113,7 +117,6 @@ async function UnPack(file, pwd = LoadPwd()) {
 
 /**解压目录下所有压缩包 */
 async function UnPackAll(dir = process.cwd()) {
-    console.log(dir)
     let files = await LoadFiles(dir);
     totalFilesNum += files.length;
     for (let i = 0; i < files.length; i++) {

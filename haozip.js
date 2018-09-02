@@ -92,7 +92,6 @@ function TransformParams(options, zipfile = "") {
 /**执行好压命令 */
 function HaoExec(cmd) {
     return new Promise((r, j) => {
-        console.log(cmd)
         child_process.exec(cmd, {
             encoding: "buffer"
         }, (e, stdo, stde) => {
@@ -106,9 +105,13 @@ function HaoExec(cmd) {
             if (e) {
                 j(err);
             } else {
-                let estr = /([\u4e00-\u9fa5\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300ba-z0-9]+)[\r\n]子项错误：[ ]+(\d+)/gi.exec(sto);
+                let estr =
+                    /([\u4e00-\u9fa5\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300ba-z0-9]+)[\r\n]子项错误：[ ]+(\d+)/gi
+                    .exec(sto);
                 if (!estr) {
-                    estr = /错误： ([\u4e00-\u9fa5\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300ba-z0-9]+)\n?$/gi.exec(sto);
+                    estr =
+                        /错误： ([\u4e00-\u9fa5\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300ba-z0-9]+)\n?$/gi
+                        .exec(sto);
                 }
                 if (estr) {
                     err.msg = estr[1];
